@@ -1,36 +1,23 @@
 # Base ignore
-/.buildpath
 /.project
+/.buildpath
 /.settings
-/.jsbeautifyrc
-/.php-cs-fixer.php
-/.vscode
-
-/assets/css/*.opt.css
-/config.php
-/data/cache/*
-/data/config/config_ini.*.php
+/data/cache/
 /data/config/diagnostic-*.xml
-/data/config/efloodip.php
-/data/config/banip.php
-/data/config/admin_config.php
-/data/config/disable_site_content.*.txt
+/data/logs/*
 /data/logs/data_logs/
-/data/logs/dump_backup/
 /data/logs/error_logs/
 /data/logs/ip_logs/
 /data/logs/ref_logs/
 /data/logs/voting_logs/
-/data/tmp/*
-/uploads/logo_*
-/assets/logo_*
-/install/default.php
+/data/tmp/
 
 composer.lock
 #vendor test ignore 
 /vendor/**/demo/
 /vendor/**/example/
 /vendor/**/examples/
+/vendor/**/Examples/
 /vendor/**/test/
 /vendor/**/tests/
 /vendor/**/Tests/
@@ -39,12 +26,11 @@ composer.lock
 /vendor/**/.scrutinizer.yml
 /vendor/**/phpunit.xml*
 /vendor/**/phpunit.php
-/vendor/**/COMMITMENT
-/vendor/**/SECURITY.md
 
 #vendor docs ignore
 /vendor/**/doc/
 /vendor/**/docs/
+/vendor/**/Documentation/
 /vendor/**/readme*
 /vendor/**/README*
 /vendor/**/changelog*
@@ -58,31 +44,3 @@ composer.lock
 /vendor/**/phpunit.php
 /vendor/**/.gitignore
 /vendor/**/composer.*
-
-/vendor/phpmailer/phpmailer/language/*.php
-
-# Ignore some uploads, assets dir
-/assets/download
-/assets/*.jpg
-/assets/about/*.png
-/assets/banners/*.jpg
-/assets/freecontent/*.jpg
-/assets/news/**/*.jpg
-
-/uploads/download
-/uploads/users/*.jpg
-/uploads/contact/*.jpg
-/uploads/about/*.jpg
-/uploads/banners/*.jpg
-/uploads/page/*.jpg
-/uploads/menu/
-/uploads/news/
-
-# Allow default file
-!/uploads/banners/bongoaigiao.jpg
-!/uploads/banners/vinades.jpg
-!/uploads/banners/vndads___05.jpg
-!/uploads/banners/webnhanh_vn.png
-!/data/cache/.htaccess
-!/data/cache/index.html
-!/data/tmp/index.html
