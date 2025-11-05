@@ -10,6 +10,15 @@ import {
   getCodebaseStructure,
   findUsages
 } from './auggie.js';
+import {
+  executeSlashCommand,
+  executeGithubWorkflow,
+  executeCodeReview
+} from './commands.js';
+import {
+  executeAutonomousAgent,
+  executeAdaptiveAgent
+} from './agent.js';
 
 /**
  * MCP Tool: Query Codebase
@@ -126,14 +135,99 @@ export const findUsagesTool: Tool = {
 };
 
 /**
+ * MCP Tool: Execute Slash Command
+ * Execute Auggie slash commands (custom or built-in)
+ */
+export const executeSlashCommandTool: Tool = {
+  name: 'execute_slash_command',
+  description: 'Execute an Auggie slash command. Auggie supports custom commands in .augment/commands/ and built-in commands like /github-workflow, /code-review, etc.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      commandName: {
+        type: 'string',
+        description: 'Name of the slash command (without the / prefix, e.g., "github-workflow", "code-review")'
+      },
+      args: {
+        type: 'string',
+        description: 'Optional: Arguments to pass to the command'
+      },
+      workingDirectory: {
+        type: 'string',
+        description: 'Optional: Path to the codebase directory'
+      }
+    },
+    required: ['commandName']
+  }
+};
+
+/**
+ * MCP Tool: Autonomous Agent (THIS IS THE KEY TOOL!)
+ * AI agent chỉ cần "mồi" - MCP server sẽ tự động break down và execute
+ */
+export const autonomousAgentTool: Tool = {
+  name: 'autonomous_agent',
+  description: '🤖 AUTONOMOUS MODE: AI agent chỉ cần cung cấp câu hỏi ban đầu. MCP server sẽ TỰ ĐỘNG: (1) Phân tích query, (2) Tạo execution plan với multiple sub-tasks, (3) Execute từng task với auggie, (4) Tổng hợp kết quả. Perfect for complex questions that need multiple queries!',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      initialQuery: {
+        type: 'string',
+        description: 'Câu hỏi hoặc yêu cầu ban đầu. MCP server sẽ tự động break down thành các sub-tasks và execute (e.g., "How does authentication work in this project?", "Analyze the payment system")'
+      },
+      workingDirectory: {
+        type: 'string',
+        description: 'Optional: Path to the codebase directory'
+      }
+    },
+    required: ['initialQuery']
+  }
+};
+
+/**
+ * MCP Tool: Adaptive Autonomous Agent
+ * Advanced version with adaptive planning based on intermediate results
+ */
+export const adaptiveAgentTool: Tool = {
+  name: 'adaptive_agent',
+  description: '🧠 ADAPTIVE AUTONOMOUS MODE: Advanced autonomous agent that adapts its execution plan based on intermediate results. Can add follow-up tasks dynamically. Best for exploratory analysis and deep dives.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      initialQuery: {
+        type: 'string',
+        description: 'Initial query or request. Agent will adapt its plan based on findings.'
+      },
+      maxIterations: {
+        type: 'number',
+        description: 'Optional: Maximum number of iterations (default: 5). Prevents infinite loops.'
+      },
+      workingDirectory: {
+        type: 'string',
+        description: 'Optional: Path to the codebase directory'
+      }
+    },
+    required: ['initialQuery']
+  }
+};
+
+/**
  * All available MCP tools
  */
 export const allTools: Tool[] = [
+  // Autonomous agent tools (RECOMMENDED - AI agent chỉ cần "mồi")
+  autonomousAgentTool,
+  adaptiveAgentTool,
+
+  // Basic query tools (for manual control)
   queryCodebaseTool,
   analyzeCodeTool,
   searchCodebaseTool,
   getCodebaseStructureTool,
-  findUsagesTool
+  findUsagesTool,
+
+  // Slash command support
+  executeSlashCommandTool
 ];
 
 /**
@@ -144,6 +238,92 @@ export async function handleToolCall(
   args: Record<string, unknown>
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   try {
+    // Handle autonomous agent tools
+    if (toolName === 'autonomous_agent') {
+      const agentResult = await executeAutonomousAgent(
+        args.initialQuery as string,
+        args.workingDirectory as string | undefined
+      );
+
+      if (!agentResult.success) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Autonomous agent error: ${agentResult.error}`
+            }
+          ]
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: agentResult.synthesis
+          }
+        ]
+      };
+    }
+
+    if (toolName === 'adaptive_agent') {
+      const agentResult = await executeAdaptiveAgent(
+        args.initialQuery as string,
+        (args.maxIterations as number) || 5,
+        args.workingDirectory as string | undefined
+      );
+
+      if (!agentResult.success) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Adaptive agent error: ${agentResult.error}`
+            }
+          ]
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: agentResult.synthesis
+          }
+        ]
+      };
+    }
+
+    // Handle slash command tool
+    if (toolName === 'execute_slash_command') {
+      const result = await executeSlashCommand(
+        args.commandName as string,
+        args.args as string | undefined,
+        args.workingDirectory as string | undefined
+      );
+
+      if (!result.success) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: ${result.error}\n\nPartial output: ${result.output}`
+            }
+          ]
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: result.output
+          }
+        ]
+      };
+    }
+
+    // Handle basic query tools
     let result;
 
     switch (toolName) {

@@ -8,11 +8,19 @@ Server này wrap Auggie CLI của Augment Code và expose nó qua Model Context 
 
 ### Tính năng chính
 
+#### 🤖 Autonomous Agent Mode (MỚI!)
+- ✅ **Autonomous Agent**: AI agent chỉ cần "mồi" - MCP server tự động phân tích, tạo plan, execute multiple queries, tổng hợp kết quả!
+- ✅ **Adaptive Agent**: Advanced mode với adaptive planning - tự động thêm follow-up tasks dựa trên findings
+
+#### 📊 Basic Query Tools
 - ✅ **Query Codebase**: Hỏi về codebase bằng natural language
 - ✅ **Analyze Code**: Phân tích files và patterns cụ thể
 - ✅ **Search Codebase**: Tìm kiếm functions, classes, patterns
 - ✅ **Codebase Structure**: Lấy overview về architecture
 - ✅ **Find Usages**: Tìm nơi sử dụng functions/classes
+
+#### ⚡ Slash Commands
+- ✅ **Execute Slash Commands**: Sử dụng custom và built-in auggie commands (/github-workflow, /code-review, etc.)
 
 ## 🛠️ Yêu cầu
 
@@ -103,9 +111,80 @@ Với [Coder](https://github.com/Codify-Labs/coder):
 
 ## 🔧 MCP Tools
 
-Server expose 5 MCP tools:
+Server expose **8 MCP tools** (3 mới + 5 cơ bản):
 
-### 1. `query_codebase`
+### 🤖 Autonomous Tools (RECOMMENDED - Chỉ cần "mồi"!)
+
+### 1. `autonomous_agent` ⭐ MOST USED
+
+**AI agent chỉ cần "mồi" một câu hỏi - MCP server tự động làm tất cả!**
+
+**Parameters:**
+- `initialQuery` (required): Câu hỏi ban đầu
+- `workingDirectory` (optional): Đường dẫn đến codebase
+
+**Example:**
+```json
+{
+  "initialQuery": "How does authentication work in this project? Include flow, tokens, and session management.",
+  "workingDirectory": "/path/to/project"
+}
+```
+
+**What happens:**
+1. MCP server phân tích query
+2. Tạo execution plan (e.g., get structure → query details → search code → find usages)
+3. Execute tất cả tasks tự động
+4. Tổng hợp kết quả comprehensive
+
+[📖 Chi tiết trong AUTONOMOUS_MODE.md](AUTONOMOUS_MODE.md)
+
+### 2. `adaptive_agent` 🧠 ADVANCED
+
+**Advanced autonomous mode với adaptive planning.**
+
+**Parameters:**
+- `initialQuery` (required): Câu hỏi ban đầu
+- `maxIterations` (optional): Max iterations (default: 5)
+- `workingDirectory` (optional): Đường dẫn đến codebase
+
+**Example:**
+```json
+{
+  "initialQuery": "Comprehensively analyze the payment system - architecture, security, error handling, and integration points",
+  "maxIterations": 10,
+  "workingDirectory": "/path/to/project"
+}
+```
+
+**Adaptive features:**
+- Tự động thêm follow-up tasks dựa trên findings
+- Deep exploration mode
+- Best for complex investigations
+
+### 3. `execute_slash_command` ⚡
+
+**Execute Auggie slash commands.**
+
+**Parameters:**
+- `commandName` (required): Command name (without /)
+- `args` (optional): Arguments
+- `workingDirectory` (optional): Đường dẫn đến codebase
+
+**Example:**
+```json
+{
+  "commandName": "github-workflow",
+  "args": "Generate PR workflow",
+  "workingDirectory": "/path/to/project"
+}
+```
+
+---
+
+### 📊 Basic Query Tools (Manual Control)
+
+### 4. `query_codebase`
 
 Query codebase bằng natural language.
 
@@ -121,7 +200,7 @@ Query codebase bằng natural language.
 }
 ```
 
-### 2. `analyze_code`
+### 5. `analyze_code`
 
 Phân tích file hoặc code pattern cụ thể.
 
@@ -139,7 +218,7 @@ Phân tích file hoặc code pattern cụ thể.
 }
 ```
 
-### 3. `search_codebase`
+### 6. `search_codebase`
 
 Tìm kiếm patterns, functions, classes trong codebase.
 
@@ -155,7 +234,7 @@ Tìm kiếm patterns, functions, classes trong codebase.
 }
 ```
 
-### 4. `get_codebase_structure`
+### 7. `get_codebase_structure`
 
 Lấy overview về codebase structure và architecture.
 
@@ -169,7 +248,7 @@ Lấy overview về codebase structure và architecture.
 }
 ```
 
-### 5. `find_usages`
+### 8. `find_usages`
 
 Tìm nơi sử dụng function, class, hoặc variable.
 
