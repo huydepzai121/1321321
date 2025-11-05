@@ -1,26 +1,44 @@
 # MCP Augment Server
 
-🚀 MCP (Model Context Protocol) server implementation trong TypeScript để expose Augment's context engine cho các AI agents khác.
+🚀 **FULL-FEATURED** MCP (Model Context Protocol) server với **AUTONOMOUS EDITING** - AI agent chỉ cần "mồi", server tự động phân tích, execute, và **SỬA CODE**!
 
 ## 📋 Tổng quan
 
-Server này wrap Auggie CLI của Augment Code và expose nó qua Model Context Protocol, cho phép các AI agents khác query và phân tích codebase một cách thông minh.
+Server này wrap **toàn bộ Auggie CLI capabilities** và expose qua Model Context Protocol, cho phép AI agents:
+- ✅ Query và analyze codebase
+- ✅ **TỰ ĐỘNG SỬA FILES** (create, modify, delete)
+- ✅ Fix bugs, add features, refactor code
+- ✅ Generate tests và documentation
+- ✅ Custom slash commands
+
+**Khác biệt chính:** Thay vì user phải prompt auggie, **AI sẽ tự generate optimal prompts và execute!**
 
 ### Tính năng chính
 
-#### 🤖 Autonomous Agent Mode (MỚI!)
-- ✅ **Autonomous Agent**: AI agent chỉ cần "mồi" - MCP server tự động phân tích, tạo plan, execute multiple queries, tổng hợp kết quả!
-- ✅ **Adaptive Agent**: Advanced mode với adaptive planning - tự động thêm follow-up tasks dựa trên findings
+#### ⚡ AUTONOMOUS EDITING MODE (FULL POWER!)
+- 🔥 **Autonomous Editor**: AI tự phân tích task, generate prompts, **TỰ SỬA CODE**, verify changes!
+  - Fix bugs automatically
+  - Add features với planning
+  - Refactor code safely
+  - Generate tests
+  - Add documentation
+  - Optimize performance
+- 🔥 **Direct Editing**: Execute specific editing tasks
+- 🔥 **Custom Slash Commands**: Tạo và sử dụng reusable commands
+- 🔥 **Dry Run Mode**: Preview changes trước khi apply
 
-#### 📊 Basic Query Tools
+#### 🤖 Autonomous Query Mode (Read-Only)
+- ✅ **Autonomous Agent**: AI tự phân tích query, tạo plan, execute multiple queries, tổng hợp kết quả
+- ✅ **Adaptive Agent**: Advanced với adaptive planning - tự thêm follow-up tasks
+
+#### 📊 Basic Tools (Manual Control)
 - ✅ **Query Codebase**: Hỏi về codebase bằng natural language
 - ✅ **Analyze Code**: Phân tích files và patterns cụ thể
 - ✅ **Search Codebase**: Tìm kiếm functions, classes, patterns
 - ✅ **Codebase Structure**: Lấy overview về architecture
 - ✅ **Find Usages**: Tìm nơi sử dụng functions/classes
 
-#### ⚡ Slash Commands
-- ✅ **Execute Slash Commands**: Sử dụng custom và built-in auggie commands (/github-workflow, /code-review, etc.)
+**Total:** 12 MCP tools (4 editing + 3 autonomous + 5 basic)
 
 ## 🛠️ Yêu cầu
 
@@ -111,13 +129,82 @@ Với [Coder](https://github.com/Codify-Labs/coder):
 
 ## 🔧 MCP Tools
 
-Server expose **8 MCP tools** (3 mới + 5 cơ bản):
+Server expose **12 MCP tools**:
 
-### 🤖 Autonomous Tools (RECOMMENDED - Chỉ cần "mồi"!)
+### ⚡ AUTONOMOUS EDITING TOOLS (FULL POWER!)
 
-### 1. `autonomous_agent` ⭐ MOST USED
+### 1. `autonomous_editor` 🔥 MOST POWERFUL
 
-**AI agent chỉ cần "mồi" một câu hỏi - MCP server tự động làm tất cả!**
+**AI tự động SỬA CODE - không cần user prompt auggie!**
+
+**Parameters:**
+- `request` (required): Editing request
+- `workingDirectory` (optional): Path to codebase
+- `dryRun` (optional): Preview mode (default: false)
+
+**Example:**
+```json
+{
+  "request": "Fix the bug where users can't login with email addresses containing special characters",
+  "dryRun": false
+}
+```
+
+**What happens:**
+1. AI phân tích task → Identifies as BUG_FIX
+2. Generate plan:
+   - Locate and understand bug
+   - Generate fix
+   - Verify fix
+3. Execute each step với auggie
+4. **FILES ĐƯỢC SỬA TỰ ĐỘNG!**
+5. Return comprehensive summary
+
+**Supports:**
+- ✅ Create files
+- ✅ Fix bugs
+- ✅ Refactor code
+- ✅ Add features
+- ✅ Add tests
+- ✅ Add docs
+- ✅ Optimize code
+
+[📖 Full docs trong EDITING_MODE.md](EDITING_MODE.md)
+
+### 2. `execute_editing_task`
+
+**Direct editing cho specific tasks.**
+
+```json
+{
+  "task": "Add comprehensive error handling to src/api/users.ts",
+  "dryRun": false
+}
+```
+
+### 3. `create_custom_command`
+
+**Tạo reusable slash commands.**
+
+```json
+{
+  "commandName": "security-audit",
+  "description": "Comprehensive security audit",
+  "prompt": "Analyze for SQL injection, XSS, auth issues..."
+}
+```
+
+### 4. `list_custom_commands`
+
+List all custom commands trong `.augment/commands/`
+
+---
+
+### 🤖 Autonomous Query Tools (READ-ONLY - Chỉ cần "mồi"!)
+
+### 5. `autonomous_agent`
+
+**AI agent chỉ cần "mồi" - MCP server tự query (READ-ONLY).**
 
 **Parameters:**
 - `initialQuery` (required): Câu hỏi ban đầu
@@ -139,9 +226,9 @@ Server expose **8 MCP tools** (3 mới + 5 cơ bản):
 
 [📖 Chi tiết trong AUTONOMOUS_MODE.md](AUTONOMOUS_MODE.md)
 
-### 2. `adaptive_agent` 🧠 ADVANCED
+### 6. `adaptive_agent`
 
-**Advanced autonomous mode với adaptive planning.**
+**Advanced autonomous query với adaptive planning.**
 
 **Parameters:**
 - `initialQuery` (required): Câu hỏi ban đầu
@@ -162,9 +249,9 @@ Server expose **8 MCP tools** (3 mới + 5 cơ bản):
 - Deep exploration mode
 - Best for complex investigations
 
-### 3. `execute_slash_command` ⚡
+### 7. `execute_slash_command`
 
-**Execute Auggie slash commands.**
+**Execute auggie slash commands.**
 
 **Parameters:**
 - `commandName` (required): Command name (without /)
@@ -184,7 +271,7 @@ Server expose **8 MCP tools** (3 mới + 5 cơ bản):
 
 ### 📊 Basic Query Tools (Manual Control)
 
-### 4. `query_codebase`
+### 8. `query_codebase`
 
 Query codebase bằng natural language.
 
@@ -200,7 +287,7 @@ Query codebase bằng natural language.
 }
 ```
 
-### 5. `analyze_code`
+### 9. `analyze_code`
 
 Phân tích file hoặc code pattern cụ thể.
 
@@ -218,7 +305,7 @@ Phân tích file hoặc code pattern cụ thể.
 }
 ```
 
-### 6. `search_codebase`
+### 10. `search_codebase`
 
 Tìm kiếm patterns, functions, classes trong codebase.
 
@@ -234,7 +321,7 @@ Tìm kiếm patterns, functions, classes trong codebase.
 }
 ```
 
-### 7. `get_codebase_structure`
+### 11. `get_codebase_structure`
 
 Lấy overview về codebase structure và architecture.
 
@@ -248,7 +335,7 @@ Lấy overview về codebase structure và architecture.
 }
 ```
 
-### 8. `find_usages`
+### 12. `find_usages`
 
 Tìm nơi sử dụng function, class, hoặc variable.
 

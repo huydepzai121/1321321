@@ -19,6 +19,15 @@ import {
   executeAutonomousAgent,
   executeAdaptiveAgent
 } from './agent.js';
+import {
+  executeAuggieTask,
+  executeCustomSlashCommand,
+  createCustomCommand,
+  listCustomCommands
+} from './editor.js';
+import {
+  executeAutonomousEditor
+} from './autonomous-editor.js';
 
 /**
  * MCP Tool: Query Codebase
@@ -212,22 +221,131 @@ export const adaptiveAgentTool: Tool = {
 };
 
 /**
+ * MCP Tool: Autonomous Editor ⚡ FULL POWER!
+ * AI tự động generate prompts và execute editing tasks
+ */
+export const autonomousEditorTool: Tool = {
+  name: 'autonomous_editor',
+  description: '⚡ AUTONOMOUS EDITING MODE: AI tự động phân tích task, generate optimal prompts, execute với auggie (BAO GỒM EDITING FILES), và verify changes. Thay vì user prompt, AI sẽ tự làm TẤT CẢ! Support: create files, fix bugs, refactor, add features, add tests, optimize code.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      request: {
+        type: 'string',
+        description: 'Editing request (e.g., "Fix the authentication bug", "Add tests for payment module", "Refactor UserService", "Create new API endpoint for orders")'
+      },
+      workingDirectory: {
+        type: 'string',
+        description: 'Optional: Path to the codebase directory'
+      },
+      dryRun: {
+        type: 'boolean',
+        description: 'Optional: Preview changes without applying (default: false)'
+      }
+    },
+    required: ['request']
+  }
+};
+
+/**
+ * MCP Tool: Execute Editing Task
+ * Direct auggie editing execution
+ */
+export const executeEditingTaskTool: Tool = {
+  name: 'execute_editing_task',
+  description: 'Execute a specific editing task with auggie CLI. Can create, modify, or delete files. Use for direct editing when you know exactly what to do.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      task: {
+        type: 'string',
+        description: 'Editing task to execute (e.g., "Add error handling to src/api/users.ts", "Create tests for PaymentService")'
+      },
+      workingDirectory: {
+        type: 'string',
+        description: 'Optional: Path to the codebase directory'
+      },
+      dryRun: {
+        type: 'boolean',
+        description: 'Optional: Preview changes without applying (default: false)'
+      }
+    },
+    required: ['task']
+  }
+};
+
+/**
+ * MCP Tool: Create Custom Slash Command
+ */
+export const createCustomCommandTool: Tool = {
+  name: 'create_custom_command',
+  description: 'Create a custom slash command in .augment/commands/ that can be reused. Perfect for common workflows.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      commandName: {
+        type: 'string',
+        description: 'Name of the command (e.g., "security-audit", "add-api-endpoint")'
+      },
+      description: {
+        type: 'string',
+        description: 'Description of what the command does'
+      },
+      prompt: {
+        type: 'string',
+        description: 'The prompt that will be executed when command is called'
+      },
+      workingDirectory: {
+        type: 'string',
+        description: 'Optional: Path to the codebase directory'
+      }
+    },
+    required: ['commandName', 'description', 'prompt']
+  }
+};
+
+/**
+ * MCP Tool: List Custom Commands
+ */
+export const listCustomCommandsTool: Tool = {
+  name: 'list_custom_commands',
+  description: 'List all available custom slash commands in .augment/commands/',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      workingDirectory: {
+        type: 'string',
+        description: 'Optional: Path to the codebase directory'
+      }
+    }
+  }
+};
+
+/**
  * All available MCP tools
  */
 export const allTools: Tool[] = [
-  // Autonomous agent tools (RECOMMENDED - AI agent chỉ cần "mồi")
+  // 🔥 AUTONOMOUS EDITING (FULL POWER!)
+  autonomousEditorTool,
+
+  // Autonomous query agents (READ-ONLY)
   autonomousAgentTool,
   adaptiveAgentTool,
 
-  // Basic query tools (for manual control)
+  // Direct editing tools
+  executeEditingTaskTool,
+
+  // Custom commands
+  createCustomCommandTool,
+  listCustomCommandsTool,
+  executeSlashCommandTool,
+
+  // Basic query tools (manual control)
   queryCodebaseTool,
   analyzeCodeTool,
   searchCodebaseTool,
   getCodebaseStructureTool,
-  findUsagesTool,
-
-  // Slash command support
-  executeSlashCommandTool
+  findUsagesTool
 ];
 
 /**
@@ -238,6 +356,105 @@ export async function handleToolCall(
   args: Record<string, unknown>
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
   try {
+    // Handle autonomous editing tools
+    if (toolName === 'autonomous_editor') {
+      const editorResult = await executeAutonomousEditor(
+        args.request as string,
+        args.workingDirectory as string | undefined,
+        {
+          dryRun: (args.dryRun as boolean) || false
+        }
+      );
+
+      if (!editorResult.success) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Autonomous editor error: ${editorResult.error}`
+            }
+          ]
+        };
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: editorResult.summary
+          }
+        ]
+      };
+    }
+
+    if (toolName === 'execute_editing_task') {
+      const taskResult = await executeAuggieTask(
+        args.task as string,
+        args.workingDirectory as string | undefined,
+        {
+          dryRun: (args.dryRun as boolean) || false
+        }
+      );
+
+      if (!taskResult.success) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Editing task error: ${taskResult.error}\n\nPartial output: ${taskResult.output}`
+            }
+          ]
+        };
+      }
+
+      let response = taskResult.output;
+      if (taskResult.filesChanged && taskResult.filesChanged.length > 0) {
+        response += `\n\n**Files Changed:**\n${taskResult.filesChanged.map(f => `- ${f}`).join('\n')}`;
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: response
+          }
+        ]
+      };
+    }
+
+    if (toolName === 'create_custom_command') {
+      const cmdResult = await createCustomCommand(
+        args.commandName as string,
+        args.description as string,
+        args.prompt as string,
+        args.workingDirectory as string | undefined
+      );
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: cmdResult.success ? cmdResult.output : `Error: ${cmdResult.error}`
+          }
+        ]
+      };
+    }
+
+    if (toolName === 'list_custom_commands') {
+      const listResult = await listCustomCommands(
+        args.workingDirectory as string | undefined
+      );
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: listResult.output
+          }
+        ]
+      };
+    }
+
     // Handle autonomous agent tools
     if (toolName === 'autonomous_agent') {
       const agentResult = await executeAutonomousAgent(
