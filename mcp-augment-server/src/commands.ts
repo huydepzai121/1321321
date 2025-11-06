@@ -13,6 +13,41 @@ const execAsync = promisify(exec);
 const DEFAULT_TIMEOUT = 120000; // 2 minutes for commands
 
 /**
+ * Get auggie command path - shared utility
+ */
+async function getAuggieCommand(): Promise<string | null> {
+  try {
+    await execAsync('auggie --version', { timeout: 5000 });
+    return 'auggie';
+  } catch {
+    const possiblePaths = [
+      '/usr/local/bin/auggie',
+      '/opt/homebrew/bin/auggie',
+      `${process.env.HOME}/.npm-global/bin/auggie`,
+      '/usr/bin/auggie',
+    ];
+
+    for (const path of possiblePaths) {
+      try {
+        await execAsync(`${path} --version`, { timeout: 5000 });
+        return path;
+      } catch {
+        continue;
+      }
+    }
+
+    try {
+      const { stdout } = await execAsync('npm config get prefix', { timeout: 5000 });
+      const auggiePath = `${stdout.trim()}/bin/auggie`;
+      await execAsync(`${auggiePath} --version`, { timeout: 5000 });
+      return auggiePath;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
  * Execute an Auggie slash command
  */
 export async function executeSlashCommand(
@@ -21,22 +56,21 @@ export async function executeSlashCommand(
   workingDirectory?: string
 ): Promise<AuggieResult> {
   try {
-    // Check if auggie is installed
-    try {
-      await execAsync('which auggie', { timeout: 5000 });
-    } catch (error) {
+    // Get auggie command
+    const auggieCmd = await getAuggieCommand();
+    if (!auggieCmd) {
       return {
         success: false,
         output: '',
-        error: 'Auggie CLI is not installed',
+        error: 'Auggie CLI not found. Please install: npm install -g @augmentcode/auggie',
         exitCode: 127
       };
     }
 
     // Execute command using auggie command <name>
     const command = args
-      ? `auggie command ${commandName} "${args.replace(/"/g, '\\"')}"`
-      : `auggie command ${commandName}`;
+      ? `${auggieCmd} command ${commandName} "${args.replace(/"/g, '\\"')}"`
+      : `${auggieCmd} command ${commandName}`;
 
     const { stdout, stderr } = await execAsync(command, {
       cwd: workingDirectory || process.cwd(),
@@ -67,7 +101,17 @@ export async function listAuggieCommands(
   workingDirectory?: string
 ): Promise<AuggieResult> {
   try {
-    const command = 'auggie --help';
+    const auggieCmd = await getAuggieCommand();
+    if (!auggieCmd) {
+      return {
+        success: false,
+        output: '',
+        error: 'Auggie CLI not found',
+        exitCode: 127
+      };
+    }
+
+    const command = `${auggieCmd} --help`;
     const { stdout, stderr } = await execAsync(command, {
       cwd: workingDirectory || process.cwd(),
       timeout: 10000,

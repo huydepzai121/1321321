@@ -16,6 +16,45 @@ const execAsync = promisify(exec);
 const DEFAULT_TIMEOUT = 180000; // 3 minutes for editing tasks
 
 /**
+ * Get auggie command path - shared utility
+ */
+async function getAuggieCommand(): Promise<string | null> {
+  // Try direct command first
+  try {
+    await execAsync('auggie --version', { timeout: 5000 });
+    return 'auggie';
+  } catch {
+    // Try common locations
+    const possiblePaths = [
+      '/usr/local/bin/auggie',
+      '/opt/homebrew/bin/auggie',
+      `${process.env.HOME}/.npm-global/bin/auggie`,
+      '/usr/bin/auggie',
+    ];
+
+    for (const path of possiblePaths) {
+      try {
+        await execAsync(`${path} --version`, { timeout: 5000 });
+        return path;
+      } catch {
+        continue;
+      }
+    }
+
+    // Try npm global bin
+    try {
+      const { stdout } = await execAsync('npm config get prefix', { timeout: 5000 });
+      const npmPrefix = stdout.trim();
+      const auggiePath = `${npmPrefix}/bin/auggie`;
+      await execAsync(`${auggiePath} --version`, { timeout: 5000 });
+      return auggiePath;
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
  * Execute auggie in interactive mode with prompt
  * This allows full auggie capabilities including editing
  */
@@ -35,14 +74,13 @@ export async function executeAuggieInteractive(
   } = options || {};
 
   try {
-    // Check auggie installation
-    try {
-      await execAsync('which auggie', { timeout: 5000 });
-    } catch (error) {
+    // Get auggie command
+    const auggieCmd = await getAuggieCommand();
+    if (!auggieCmd) {
       return {
         success: false,
         output: '',
-        error: 'Auggie CLI is not installed',
+        error: 'Auggie CLI not found. Please install: npm install -g @augmentcode/auggie',
         exitCode: 127
       };
     }
@@ -52,14 +90,14 @@ export async function executeAuggieInteractive(
 
     if (dryRun) {
       // Dry run mode - preview changes without applying
-      command = `auggie --print "${prompt.replace(/"/g, '\\"')}"`;
+      command = `${auggieCmd} --print "${prompt.replace(/"/g, '\\"')}"`;
     } else if (allowEditing) {
       // Full interactive mode with editing
       // Use expect-like approach or direct stdin
-      command = `echo "${prompt.replace(/"/g, '\\"')}" | auggie`;
+      command = `echo "${prompt.replace(/"/g, '\\"')}" | ${auggieCmd}`;
     } else {
       // Read-only mode
-      command = `auggie --print "${prompt.replace(/"/g, '\\"')}"`;
+      command = `${auggieCmd} --print "${prompt.replace(/"/g, '\\"')}"`;
     }
 
     const { stdout, stderr } = await execAsync(command, {
