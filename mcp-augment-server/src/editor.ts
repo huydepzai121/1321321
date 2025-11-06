@@ -27,7 +27,7 @@ const LONG_TIMEOUT = 300000; // 5 minutes for complex refactoring
 async function getAuggieCommand(): Promise<string | null> {
   // Try direct command first
   try {
-    await execAsync('auggie --version', { timeout: 5000 });
+    await execAsync('auggie --version', { timeout: 5000, shell: true });
     return 'auggie';
   } catch {
     // Try common locations
@@ -36,11 +36,14 @@ async function getAuggieCommand(): Promise<string | null> {
       '/opt/homebrew/bin/auggie',
       `${process.env.HOME}/.npm-global/bin/auggie`,
       '/usr/bin/auggie',
+      // Windows paths
+      `${process.env.APPDATA}\\npm\\auggie.cmd`,
+      `C:\\Users\\${process.env.USERNAME}\\AppData\\Roaming\\npm\\auggie.cmd`,
     ];
 
     for (const path of possiblePaths) {
       try {
-        await execAsync(`${path} --version`, { timeout: 5000 });
+        await execAsync(`${path} --version`, { timeout: 5000, shell: true });
         return path;
       } catch {
         continue;
@@ -49,10 +52,10 @@ async function getAuggieCommand(): Promise<string | null> {
 
     // Try npm global bin
     try {
-      const { stdout } = await execAsync('npm config get prefix', { timeout: 5000 });
+      const { stdout } = await execAsync('npm config get prefix', { timeout: 5000, shell: true });
       const npmPrefix = stdout.trim();
       const auggiePath = `${npmPrefix}/bin/auggie`;
-      await execAsync(`${auggiePath} --version`, { timeout: 5000 });
+      await execAsync(`${auggiePath} --version`, { timeout: 5000, shell: true });
       return auggiePath;
     } catch {
       return null;
@@ -110,6 +113,8 @@ export async function executeAuggieInteractive(
       cwd: workingDirectory || process.cwd(),
       timeout,
       maxBuffer: 20 * 1024 * 1024, // 20MB for large edits
+      shell: true, // Required for Windows
+      windowsHide: true // Hide console window on Windows
     });
 
     return {
@@ -212,6 +217,8 @@ export async function executeCustomSlashCommand(
       cwd: workingDirectory || process.cwd(),
       timeout: DEFAULT_TIMEOUT,
       maxBuffer: 20 * 1024 * 1024,
+      shell: true, // Required for Windows
+      windowsHide: true
     });
 
     return {

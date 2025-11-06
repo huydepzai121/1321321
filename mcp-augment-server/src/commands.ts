@@ -17,7 +17,7 @@ const DEFAULT_TIMEOUT = 120000; // 2 minutes for commands
  */
 async function getAuggieCommand(): Promise<string | null> {
   try {
-    await execAsync('auggie --version', { timeout: 5000 });
+    await execAsync('auggie --version', { timeout: 5000, shell: true });
     return 'auggie';
   } catch {
     const possiblePaths = [
@@ -25,11 +25,14 @@ async function getAuggieCommand(): Promise<string | null> {
       '/opt/homebrew/bin/auggie',
       `${process.env.HOME}/.npm-global/bin/auggie`,
       '/usr/bin/auggie',
+      // Windows paths
+      `${process.env.APPDATA}\\npm\\auggie.cmd`,
+      `C:\\Users\\${process.env.USERNAME}\\AppData\\Roaming\\npm\\auggie.cmd`,
     ];
 
     for (const path of possiblePaths) {
       try {
-        await execAsync(`${path} --version`, { timeout: 5000 });
+        await execAsync(`${path} --version`, { timeout: 5000, shell: true });
         return path;
       } catch {
         continue;
@@ -37,9 +40,9 @@ async function getAuggieCommand(): Promise<string | null> {
     }
 
     try {
-      const { stdout } = await execAsync('npm config get prefix', { timeout: 5000 });
+      const { stdout } = await execAsync('npm config get prefix', { timeout: 5000, shell: true });
       const auggiePath = `${stdout.trim()}/bin/auggie`;
-      await execAsync(`${auggiePath} --version`, { timeout: 5000 });
+      await execAsync(`${auggiePath} --version`, { timeout: 5000, shell: true });
       return auggiePath;
     } catch {
       return null;
@@ -76,6 +79,8 @@ export async function executeSlashCommand(
       cwd: workingDirectory || process.cwd(),
       timeout: DEFAULT_TIMEOUT,
       maxBuffer: 10 * 1024 * 1024,
+      shell: true, // Required for Windows
+      windowsHide: true
     });
 
     return {
@@ -115,6 +120,8 @@ export async function listAuggieCommands(
     const { stdout, stderr } = await execAsync(command, {
       cwd: workingDirectory || process.cwd(),
       timeout: 10000,
+      shell: true, // Required for Windows
+      windowsHide: true
     });
 
     return {
