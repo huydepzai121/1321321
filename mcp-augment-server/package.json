@@ -1,0 +1,37 @@
+{
+  "name": "mcp-augment-server",
+  "version": "1.0.0",
+  "description": "MCP server implementation exposing Augment's context engine to other AI agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mcp-augment-server": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "augment",
+    "auggie",
+    "ai-agent",
+    "codebase-context"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

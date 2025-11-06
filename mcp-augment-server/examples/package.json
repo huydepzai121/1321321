@@ -1,0 +1,12 @@
+{
+  "name": "mcp-augment-examples",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Example clients for MCP Augment Server",
+  "scripts": {
+    "test": "node test-client.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.0"
+  }
+}
