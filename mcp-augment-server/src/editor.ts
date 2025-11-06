@@ -13,7 +13,13 @@ import { promisify } from 'util';
 import type { AuggieResult } from './types.js';
 
 const execAsync = promisify(exec);
+
+/**
+ * Timeout configurations for different operation types
+ */
 const DEFAULT_TIMEOUT = 180000; // 3 minutes for editing tasks
+const QUICK_EDIT_TIMEOUT = 90000; // 1.5 minutes for simple edits
+const LONG_TIMEOUT = 300000; // 5 minutes for complex refactoring
 
 /**
  * Get auggie command path - shared utility

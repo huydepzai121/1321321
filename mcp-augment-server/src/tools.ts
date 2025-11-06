@@ -459,7 +459,11 @@ export async function handleToolCall(
     if (toolName === 'autonomous_agent') {
       const agentResult = await executeAutonomousAgent(
         args.initialQuery as string,
-        args.workingDirectory as string | undefined
+        args.workingDirectory as string | undefined,
+        {
+          maxTotalTime: (args.maxTotalTime as number) || 240000, // 4 minutes default
+          taskTimeout: (args.taskTimeout as number) || 90000 // 90 seconds per task
+        }
       );
 
       if (!agentResult.success) {
@@ -486,7 +490,11 @@ export async function handleToolCall(
     if (toolName === 'adaptive_agent') {
       const agentResult = await executeAdaptiveAgent(
         args.initialQuery as string,
-        (args.maxIterations as number) || 5,
+        {
+          maxIterations: (args.maxIterations as number) || 3, // Reduced from 5
+          maxTotalTime: (args.maxTotalTime as number) || 240000, // 4 minutes
+          taskTimeout: (args.taskTimeout as number) || 90000 // 90 seconds per task
+        },
         args.workingDirectory as string | undefined
       );
 

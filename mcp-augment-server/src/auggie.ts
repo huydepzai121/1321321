@@ -9,9 +9,15 @@ import type { AuggieQueryOptions, AuggieResult } from './types.js';
 const execAsync = promisify(exec);
 
 /**
- * Default timeout for Auggie CLI commands (60 seconds)
+ * Default timeout for Auggie CLI commands
+ * Increased to 120 seconds to handle complex queries
  */
-const DEFAULT_TIMEOUT = 60000;
+const DEFAULT_TIMEOUT = 120000; // 2 minutes
+
+/**
+ * Quick timeout for simple operations
+ */
+const QUICK_TIMEOUT = 30000; // 30 seconds
 
 /**
  * Get auggie command path

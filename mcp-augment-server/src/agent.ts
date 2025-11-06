@@ -14,6 +14,12 @@ import { executeSlashCommand } from './commands.js';
 import type { AuggieResult } from './types.js';
 
 /**
+ * Timeout configurations for autonomous agent
+ */
+const TASK_TIMEOUT = 90000; // 90 seconds per task (reduced from 120s)
+const MAX_TOTAL_TIME = 240000; // 4 minutes max total execution time
+
+/**
  * Agent task types
  */
 export enum AgentTaskType {
@@ -58,42 +64,32 @@ export function generatePlan(initialQuery: string): AgentPlan {
   const lowerQuery = initialQuery.toLowerCase();
 
   // Analyze query intent and generate tasks
+  // OPTIMIZED: Reduced task count to avoid timeouts
   if (lowerQuery.includes('how') || lowerQuery.includes('explain') || lowerQuery.includes('work')) {
-    reasoning = 'Query asks for explanation - will get structure first, then query specifics, then find related code';
-
-    tasks.push({
-      type: AgentTaskType.STRUCTURE,
-      description: 'Get overall codebase structure for context',
-      params: {}
-    });
+    reasoning = 'Query asks for explanation - will answer directly with context';
 
     tasks.push({
       type: AgentTaskType.QUERY,
-      description: 'Answer the main question',
-      params: { query: initialQuery }
+      description: 'Answer the main question with full context',
+      params: { query: `Explain in detail: ${initialQuery}` }
     });
 
-    if (lowerQuery.includes('authentication') || lowerQuery.includes('auth')) {
+    // Only add structure if specifically requested
+    if (lowerQuery.includes('structure') || lowerQuery.includes('architecture')) {
       tasks.push({
-        type: AgentTaskType.SEARCH,
-        description: 'Find authentication-related code',
-        params: { searchPattern: 'authentication and authorization code' }
+        type: AgentTaskType.STRUCTURE,
+        description: 'Get codebase structure',
+        params: {}
       });
     }
   }
   else if (lowerQuery.includes('find') || lowerQuery.includes('where') || lowerQuery.includes('search')) {
-    reasoning = 'Query is about finding code - will search and then analyze findings';
+    reasoning = 'Query is about finding code - will search with context';
 
     tasks.push({
       type: AgentTaskType.SEARCH,
-      description: 'Search for requested code',
+      description: 'Search and explain findings',
       params: { searchPattern: initialQuery }
-    });
-
-    tasks.push({
-      type: AgentTaskType.QUERY,
-      description: 'Get detailed explanation of findings',
-      params: { query: `Explain in detail: ${initialQuery}` }
     });
   }
   else if (lowerQuery.includes('analyze') || lowerQuery.includes('review')) {
@@ -156,25 +152,13 @@ export function generatePlan(initialQuery: string): AgentPlan {
     });
   }
   else {
-    // Default: comprehensive analysis
-    reasoning = 'General query - will perform comprehensive analysis';
-
-    tasks.push({
-      type: AgentTaskType.STRUCTURE,
-      description: 'Get codebase overview',
-      params: {}
-    });
+    // Default: single comprehensive query
+    reasoning = 'General query - will answer directly';
 
     tasks.push({
       type: AgentTaskType.QUERY,
-      description: 'Answer the query',
+      description: 'Answer the query with full context',
       params: { query: initialQuery }
-    });
-
-    tasks.push({
-      type: AgentTaskType.QUERY,
-      description: 'Get additional context',
-      params: { query: `Provide any additional relevant context for: ${initialQuery}` }
     });
   }
 
@@ -279,22 +263,46 @@ function synthesizeResults(
 }
 
 /**
- * Execute autonomous agent workflow
+ * Execute autonomous agent workflow with timeout tracking
  */
 export async function executeAutonomousAgent(
   initialQuery: string,
-  workingDirectory?: string
+  workingDirectory?: string,
+  options?: {
+    maxTotalTime?: number;
+    taskTimeout?: number;
+  }
 ): Promise<AgentResult> {
+  const startTime = Date.now();
+  const maxTime = options?.maxTotalTime || MAX_TOTAL_TIME;
+  const taskTimeout = options?.taskTimeout || TASK_TIMEOUT;
+
   try {
     // Generate execution plan
     const plan = generatePlan(initialQuery);
 
-    // Execute tasks sequentially
+    // Execute tasks sequentially with timeout tracking
     const results: Array<{ task: AgentTask; result: AuggieResult }> = [];
 
     for (const task of plan.tasks) {
-      console.error(`[Agent] Executing task: ${task.description}`);
+      // Check if we're approaching total timeout
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = maxTime - elapsedTime;
+
+      if (remainingTime < taskTimeout) {
+        console.error(`[Agent] Approaching timeout limit (${elapsedTime}ms elapsed), stopping early`);
+        console.error(`[Agent] Completed ${results.length}/${plan.tasks.length} tasks`);
+        break;
+      }
+
+      console.error(`[Agent] Executing task ${results.length + 1}/${plan.tasks.length}: ${task.description}`);
+      console.error(`[Agent] Time remaining: ${Math.round(remainingTime / 1000)}s`);
+
+      const taskStart = Date.now();
       const result = await executeTask(task, workingDirectory);
+      const taskDuration = Date.now() - taskStart;
+
+      console.error(`[Agent] Task completed in ${taskDuration}ms`);
       results.push({ task, result });
 
       // Stop if critical task fails
@@ -305,6 +313,9 @@ export async function executeAutonomousAgent(
     }
 
     // Synthesize results
+    const totalTime = Date.now() - startTime;
+    console.error(`[Agent] Total execution time: ${totalTime}ms`);
+
     const synthesis = synthesizeResults(plan, results);
 
     return {
@@ -314,6 +325,9 @@ export async function executeAutonomousAgent(
       synthesis
     };
   } catch (error: any) {
+    const totalTime = Date.now() - startTime;
+    console.error(`[Agent] Failed after ${totalTime}ms: ${error.message}`);
+
     return {
       success: false,
       plan: {
@@ -323,7 +337,7 @@ export async function executeAutonomousAgent(
       },
       results: [],
       synthesis: '',
-      error: error.message
+      error: `Execution failed: ${error.message} (after ${totalTime}ms)`
     };
   }
 }
@@ -334,37 +348,44 @@ export async function executeAutonomousAgent(
  */
 export async function executeAdaptiveAgent(
   initialQuery: string,
-  maxIterations: number = 5,
+  options?: {
+    maxIterations?: number;
+    maxTotalTime?: number;
+    taskTimeout?: number;
+  },
   workingDirectory?: string
 ): Promise<AgentResult> {
+  const startTime = Date.now();
+  const maxIterations = options?.maxIterations || 3; // Reduced from 5
+  const maxTime = options?.maxTotalTime || MAX_TOTAL_TIME;
+  const taskTimeout = options?.taskTimeout || TASK_TIMEOUT;
+
   try {
     const plan = generatePlan(initialQuery);
     const results: Array<{ task: AgentTask; result: AuggieResult }> = [];
     let iterations = 0;
 
     for (let i = 0; i < plan.tasks.length && iterations < maxIterations; i++) {
+      // Check timeout
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime >= maxTime) {
+        console.error(`[Adaptive Agent] Max time reached (${elapsedTime}ms), stopping`);
+        break;
+      }
+
       const task = plan.tasks[i];
-      console.error(`[Adaptive Agent] Iteration ${iterations + 1}: ${task.description}`);
+      console.error(`[Adaptive Agent] Iteration ${iterations + 1}/${maxIterations}: ${task.description}`);
 
       const result = await executeTask(task, workingDirectory);
       results.push({ task, result });
       iterations++;
 
-      // Adaptive: If we found something interesting, add follow-up tasks
-      if (result.success && result.output.length > 0) {
-        // Check if we should add follow-up tasks
-        if (task.type === AgentTaskType.SEARCH && i === plan.tasks.length - 1) {
-          // Found search results, add analysis task
-          plan.tasks.push({
-            type: AgentTaskType.QUERY,
-            description: 'Analyze search findings in depth',
-            params: {
-              query: `Based on the search results, provide a detailed analysis and explanation`
-            }
-          });
-        }
-      }
+      // REMOVED: No more adding follow-up tasks to avoid timeout
+      // Adaptive mode now focuses on completing initial plan quickly
     }
+
+    const totalTime = Date.now() - startTime;
+    console.error(`[Adaptive Agent] Completed in ${totalTime}ms`);
 
     const synthesis = synthesizeResults(plan, results);
 
@@ -375,6 +396,8 @@ export async function executeAdaptiveAgent(
       synthesis
     };
   } catch (error: any) {
+    const totalTime = Date.now() - startTime;
+
     return {
       success: false,
       plan: {
@@ -384,7 +407,7 @@ export async function executeAdaptiveAgent(
       },
       results: [],
       synthesis: '',
-      error: error.message
+      error: `Execution failed after ${totalTime}ms: ${error.message}`
     };
   }
 }
