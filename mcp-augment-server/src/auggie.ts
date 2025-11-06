@@ -35,11 +35,18 @@ async function getAuggieCommand(): Promise<string> {
   } catch {
     // Not in PATH, try common npm global locations
     const possiblePaths = [
+      // Unix/Linux/macOS
       '/usr/local/bin/auggie',
       '/opt/homebrew/bin/auggie',
       `${process.env.HOME}/.npm-global/bin/auggie`,
       `${process.env.HOME}/.nvm/versions/node/*/bin/auggie`,
       '/usr/bin/auggie',
+
+      // Windows
+      `${process.env.APPDATA}\\npm\\auggie.cmd`,
+      `${process.env.APPDATA}\\npm\\auggie`,
+      `C:\\Users\\${process.env.USERNAME}\\AppData\\Roaming\\npm\\auggie.cmd`,
+      `C:\\Program Files\\nodejs\\auggie.cmd`,
     ];
 
     for (const path of possiblePaths) {
@@ -55,9 +62,22 @@ async function getAuggieCommand(): Promise<string> {
     try {
       const { stdout } = await execAsync('npm config get prefix', { timeout: 5000 });
       const npmPrefix = stdout.trim();
-      const auggiePath = `${npmPrefix}/bin/auggie`;
-      await execAsync(`${auggiePath} --version`, { timeout: 5000 });
-      return auggiePath;
+
+      // Try both Unix and Windows paths
+      const npmPaths = [
+        `${npmPrefix}/bin/auggie`,
+        `${npmPrefix}\\auggie.cmd`,
+        `${npmPrefix}\\auggie`,
+      ];
+
+      for (const path of npmPaths) {
+        try {
+          await execAsync(`"${path}" --version`, { timeout: 5000 });
+          return path;
+        } catch {
+          continue;
+        }
+      }
     } catch {
       // Still not found
     }
@@ -93,15 +113,19 @@ export async function executeAuggieQuery(
 Checked locations:
 - AUGGIE_PATH environment variable: ${process.env.AUGGIE_PATH || 'not set'}
 - System PATH
-- /usr/local/bin/auggie
-- /opt/homebrew/bin/auggie (macOS)
-- ~/.npm-global/bin/auggie
+- /usr/local/bin/auggie (Unix/macOS)
+- /opt/homebrew/bin/auggie (macOS Homebrew)
+- ~/.npm-global/bin/auggie (Unix/macOS)
+- %APPDATA%\\npm\\auggie.cmd (Windows)
+- C:\\Users\\[USER]\\AppData\\Roaming\\npm\\auggie.cmd (Windows)
 - npm global bin directory
 
 Solutions:
 1. Add auggie to PATH
-2. Set AUGGIE_PATH env variable to auggie location
-3. Create symlink: sudo ln -s $(which auggie) /usr/local/bin/auggie
+2. Set AUGGIE_PATH in Claude Desktop config:
+   Windows: "AUGGIE_PATH": "C:\\Users\\HUYDZ\\AppData\\Roaming\\npm\\auggie.cmd"
+   Unix/macOS: "AUGGIE_PATH": "/usr/local/bin/auggie"
+3. Reinstall auggie: npm install -g @augmentcode/auggie
 
 For help, see PATH_FIX.md`,
         exitCode: 127
