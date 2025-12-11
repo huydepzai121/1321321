@@ -27,7 +27,7 @@ async function getAuggieCommand(): Promise<string> {
   // Check environment variable first
   if (process.env.AUGGIE_PATH) {
     try {
-      await execAsync(`${process.env.AUGGIE_PATH} --version`, { timeout: 5000 });
+      await execAsync(`${process.env.AUGGIE_PATH} --version`, { timeout: 5000, shell: true });
       return process.env.AUGGIE_PATH;
     } catch {
       console.error(`[Warning] AUGGIE_PATH set to ${process.env.AUGGIE_PATH} but not found`);
@@ -36,7 +36,7 @@ async function getAuggieCommand(): Promise<string> {
 
   // Try direct command
   try {
-    await execAsync('auggie --version', { timeout: 5000 });
+    await execAsync('auggie --version', { timeout: 5000, shell: true });
     return 'auggie';
   } catch {
     // Not in PATH, try common npm global locations
@@ -57,7 +57,7 @@ async function getAuggieCommand(): Promise<string> {
 
     for (const path of possiblePaths) {
       try {
-        await execAsync(`${path} --version`, { timeout: 5000 });
+        await execAsync(`${path} --version`, { timeout: 5000, shell: true });
         return path;
       } catch {
         continue;
@@ -66,7 +66,7 @@ async function getAuggieCommand(): Promise<string> {
 
     // Check npm global bin
     try {
-      const { stdout } = await execAsync('npm config get prefix', { timeout: 5000 });
+      const { stdout } = await execAsync('npm config get prefix', { timeout: 5000, shell: true });
       const npmPrefix = stdout.trim();
 
       // Try both Unix and Windows paths
@@ -78,7 +78,7 @@ async function getAuggieCommand(): Promise<string> {
 
       for (const path of npmPaths) {
         try {
-          await execAsync(`"${path}" --version`, { timeout: 5000 });
+          await execAsync(`"${path}" --version`, { timeout: 5000, shell: true });
           return path;
         } catch {
           continue;
@@ -145,6 +145,8 @@ For help, see PATH_FIX.md`,
       cwd: workingDirectory || process.cwd(),
       timeout,
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large outputs
+      shell: true, // Required for Windows to spawn cmd.exe
+      windowsHide: true // Hide console window on Windows
     });
 
     return {
